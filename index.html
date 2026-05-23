@@ -599,17 +599,46 @@
     if(busy||!q.trim())return;busy=true;sendbtn.disabled=true;
     addMsg('user',escapeHtml(q));history.push({role:'user',content:q});input.value='';
     const typing=addMsg('bot','<span class="typing"><span></span><span></span><span></span></span>');
+    const bubble=typing.querySelector('.bubble');
+    let acc='';
     try{
       const res=await fetch("/api/chat",{
         method:"POST",headers:{"Content-Type":"application/json"},
         body:JSON.stringify({messages:history})
       });
-      const data=await res.json();
-      const text=(data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join("\n").trim()||"Hmm, I didn't catch that — mind trying again?";
-      typing.querySelector('.bubble').innerHTML=toParas(text);
+      const ctype=res.headers.get('content-type')||'';
+      if(!res.ok||!res.body||!ctype.includes('text/event-stream')){
+        throw new Error('bad_response');
+      }
+      const reader=res.body.getReader();
+      const decoder=new TextDecoder();
+      let buf='';
+      bubble.innerHTML='';
+      while(true){
+        const {value,done}=await reader.read();
+        if(done)break;
+        buf+=decoder.decode(value,{stream:true});
+        const lines=buf.split('\n');
+        buf=lines.pop();
+        for(const line of lines){
+          if(!line.startsWith('data:'))continue;
+          const payload=line.slice(5).trim();
+          if(!payload)continue;
+          try{
+            const evt=JSON.parse(payload);
+            if(evt.type==='content_block_delta'&&evt.delta?.type==='text_delta'){
+              acc+=evt.delta.text;
+              bubble.innerHTML=toParas(acc);
+              stream.scrollTop=stream.scrollHeight;
+            }
+          }catch(_){}
+        }
+      }
+      const text=acc.trim()||"Hmm, I didn't catch that — mind trying again?";
+      if(!acc.trim())bubble.innerHTML=toParas(text);
       history.push({role:'assistant',content:text});
     }catch(err){
-      typing.querySelector('.bubble').innerHTML=toParas("Something glitched on my end. Try again in a sec — or just email me at stephenlozanorivacoba@gmail.com.");
+      bubble.innerHTML=toParas(acc.trim()||"Something glitched on my end. Try again in a sec — or just email me at stephenlozanorivacoba@gmail.com.");
     }finally{busy=false;sendbtn.disabled=false;stream.scrollTop=stream.scrollHeight;input.focus();}
   }
   sendbtn.addEventListener('click',()=>send(input.value));

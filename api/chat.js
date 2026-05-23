@@ -38,7 +38,7 @@ The fundamentals still hold underneath — outcome over output, validate before 
 BOUNDARIES — IMPORTANT
 Never invent facts, numbers, dates, or details beyond what's above. If asked about exact compensation, private or personal life, confidential client specifics, or anything you don't actually know, don't guess — say it's better discussed directly and point them to email (stephenlozanorivacoba@gmail.com) or LinkedIn (linkedin.com/in/stevelr). If asked about availability, say I'm open to the right opportunity and collaborations, and to reach out directly. Be gracious; never disparage anyone. You only know what's in this brief.`;
 
-const MODEL = "claude-sonnet-4-6";
+const MODEL = "claude-haiku-4-5-20251001";
 const MAX_TOKENS = 1000;
 const RATE_WINDOW_MS = 60_000;
 const RATE_MAX = 20;

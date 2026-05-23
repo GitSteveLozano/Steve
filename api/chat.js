@@ -105,13 +105,35 @@ export default async function handler(req, res) {
         max_tokens: MAX_TOKENS,
         system: SYSTEM_PROMPT,
         messages,
+        stream: true,
       }),
     });
-    const body = await upstream.text();
-    res.status(upstream.status);
-    res.setHeader("Content-Type", "application/json");
-    return res.send(body);
+
+    if (!upstream.ok || !upstream.body) {
+      const errText = await upstream.text().catch(() => "");
+      res.status(upstream.status || 502);
+      res.setHeader("Content-Type", "application/json");
+      return res.send(errText || JSON.stringify({ error: "upstream_failed" }));
+    }
+
+    res.status(200);
+    res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
+    res.setHeader("Cache-Control", "no-cache, no-transform");
+    res.setHeader("Connection", "keep-alive");
+    res.setHeader("X-Accel-Buffering", "no");
+
+    const reader = upstream.body.getReader();
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      res.write(value);
+    }
+    res.end();
   } catch (err) {
-    return res.status(502).json({ error: "upstream_failed" });
+    if (!res.headersSent) {
+      res.status(502).json({ error: "upstream_failed" });
+    } else {
+      res.end();
+    }
   }
 }
